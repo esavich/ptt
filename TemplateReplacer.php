@@ -25,7 +25,7 @@ class TemplateReplacer {
 	 * @param $begin
 	 * @param $end
 	 */
-	public function setSplitSym($begin, $end) {
+	public function setBoundarySym($begin, $end) {
 		$this->split_sym[0] = $begin;
 		$this->split_sym[1] = $end;
 	}
