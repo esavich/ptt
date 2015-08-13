@@ -4,12 +4,12 @@
  */
 class TemplateReplacer {
 	protected $tpl;
-	protected $split_sym = ['[', ']'];
+	protected $split_sym = array('[', ']');
 	protected $variant_sym = '|';
 
 	protected $place_rule;
 
-	protected $tokens = [];
+	protected $tokens = array();
 	protected $text = '';
 
 	public function __construct($template) {
@@ -50,13 +50,13 @@ class TemplateReplacer {
 	 * Parse and compile source template
 	 */
 	public function compile() {
-		$stack = [];
-		$this->tokens = [];
+		$stack = array();
+		$this->tokens = array();
 
 		foreach (str_split($this->tpl) as $letter) {
 			if ($letter == $this->split_sym[1]) {
 				$cur_token = '$'.(count($this->tokens)+1);
-				$tmp = [];
+				$tmp = array();
 
 				while (($sym = array_pop($stack)) != $this->split_sym[0]) {
 					array_unshift($tmp, $sym);
