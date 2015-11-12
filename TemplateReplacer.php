@@ -1,112 +1,170 @@
 <?php
+
 /**
- * Class TemplateReplacer
+ * PHP Text templater
  */
-class TemplateReplacer {
-	protected $tpl;
-	protected $split_sym = array('[', ']');
-	protected $variant_sym = '|';
+class Ptt {
+	protected $rules = [];
 
-	protected $place_rule;
+	protected $tags = [];
 
-	protected $tokens = array();
-	protected $text = '';
-
-	public function __construct($template) {
-		$this->tpl = $template;
-		$this->place_rule = function($variants) {
-			return $variants[rand(0, count($variants) - 1)];
-		};
+	public function __construct($rules = []) {
+		$this->rules = $rules;
 	}
 
 	/**
-	 * Set begin and end letters for template
-	 *
-	 * @param $begin
-	 * @param $end
+	 * Add new rule to collection
 	 */
-	public function setBoundarySym($begin, $end) {
-		$this->split_sym[0] = $begin;
-		$this->split_sym[1] = $end;
+	public function addRule($rule) {
+		$this->rules[] = $rule;
 	}
 
 	/**
-	 * Set variant split symbol
-	 *
-	 * @param $sym
+	 * Compile templates
 	 */
-	public function setVariantSym($sym) {
-		$this->variant_sym = $sym;
+	public function compile($tpl) {
+		$this->fulfillRules();
+		$this->sortRules();
+		$this->prepareTags();
+
+		$tree = null;
+
+		$this->buildTree($tpl, $tree);
+
+		return $this->assembleText($tree);
 	}
 
 	/**
-	 * @param callable $callback
+	 * Assemble text from tree, transforming patterns according to rules
 	 */
-	public function setChooseCallback($callback) {
-		$this->place_rule = $callback;
-	}
+	protected function assembleText($root) {
+		$accum = '';
 
-	/**
-	 * Parse and compile source template
-	 */
-	public function compile() {
-		$stack = array();
-		$this->tokens = array();
+		foreach ($root as $value) {
+			if (!is_array($value)) {
+				$accum .= $value;
+			}
+			else {
+				if (isset($value['patt'])) {
+					$rule = $this->rules[$value['ind']];
+					$choices = explode($rule['split'], $accum . $value['patt']);
 
-		foreach (str_split($this->tpl) as $letter) {
-			if ($letter == $this->split_sym[1]) {
-				$cur_token = '$'.(count($this->tokens)+1);
-				$tmp = array();
-
-				while (($sym = array_pop($stack)) != $this->split_sym[0]) {
-					array_unshift($tmp, $sym);
+					$accum = $rule['transform']($choices);
 				}
-
-				array_push($stack, $cur_token);
-
-				$this->tokens[$cur_token] = $tmp;
-			} else {
-				array_push($stack, $letter);
+				else {
+					$accum .= $this->assembleText($value);
+				}
 			}
 		}
 
-		$this->text = join('', $stack);
-		$this->tokens = array_map(function($x) {
-			return join('', $x);
-		}, $this->tokens);
+		return $accum;
 	}
 
 	/**
-	 * Format and return final version of text
-	 *
-	 * @return string
+	 * Create pattern tree from template
 	 */
-	public function getText() {
-		$this->compile();
+	protected function buildTree($tpl, &$tree) {
+		$opening = array_map(function($x) {
+			return $x[0];
+		}, $this->tags);
 
-		foreach ($this->tokens as $key => $token) {
-			$this->tokens[$key] = $this->replaceToken($token);
+		$closing = array_map(function($x) {
+			return $x[1];
+		}, $this->tags);
+
+		if ($tree == null) {
+			$tree = [];
 		}
 
-		return $this->replaceToken($this->text);
+		$cc = 0;
+
+		// @todo: make shure that this loop will stop in any cases
+		while (true) {
+			list($pos, $index) = $this->matchFirstAny($opening, $tpl);
+			list($epos, $eindex) = $this->matchFirstAny($closing, $tpl);
+
+			if ($index != -1 && $pos < $epos) {
+				$tree[$cc++] = substr($tpl, 0, $pos);
+				$olen = strlen($opening[$index]);
+				$tpl = substr($tpl, $pos + $olen);
+				
+				$tree[$cc] = null;
+
+				$tpl = $this->buildTree($tpl, $tree[$cc++]);
+			}
+			elseif ($eindex != -1) {
+				$tree[$cc++] = ['ind' => $eindex, 'patt' => substr($tpl, 0, $epos)];
+				$olen = strlen($closing[$eindex]);
+				$tpl = substr($tpl, $epos + $olen);
+
+				return $tpl;
+			}
+			else {
+				$tree[$cc++] = $tpl;
+				return $tpl;
+			}
+		}
 	}
 
 	/**
-	 * Find all placeholders in one token piece and replace with corresponding template
-	 *
-	 * @param string $token Token to replace
-	 * @return string
+	 * Search for first occurance of any variant
 	 */
-	protected function replaceToken($token) {
-		if (preg_match_all('/\$\d+/', $token, $matches) > 0) {
-			$matches = $matches[0];
-			$place_method = $this->place_rule;
-			foreach ($matches as $placeholder) {
-				$tmp = explode($this->variant_sym, $this->tokens[$placeholder]);
-				$token = str_replace($placeholder, $place_method($tmp), $token);
+	protected function matchFirstAny($vars, $tpl) {
+		$min = mb_strlen($tpl);
+		$min_ind = -1;
+
+		foreach ($vars as $ind => $var) {
+			$pos = strpos($tpl, $var);
+			if ($pos !== false && $pos < $min) {
+				$min = $pos;
+				$min_ind = $ind;
 			}
 		}
 
-		return $token;
+		return [$min, $min_ind];
+	}
+
+	/**
+	 * Extract 'tags' from rules
+	 */
+	protected function prepareTags() {
+		foreach ($this->rules as $rule) {
+			if (isset($rule['take'])) {
+				$this->tags[] = $rule['take'];
+			}
+		}
+	}
+
+	/**
+	 * Sort rules by its length dec.
+	 * This is necessary for cases when two rules has same symbols
+	 */
+	protected function sortRules() {
+		usort($this->rules, function($a, $b) {
+			return max(array_map(function($x) {
+				return strlen($x);
+			}, $a['take'])) > 
+				   max(array_map(function($x) {
+				return strlen($x);
+			}, $b['take'])) ? -1 : 1;
+		});
+	}
+
+	/**
+	 * Fill all required fields in rules
+	 */
+	protected function fulfillRules() {
+		foreach ($this->rules as &$rule) {
+			if (!isset($rule['take']))
+				$rule['take'] = ['[', ']'];
+			
+			if (!isset($rule['split']))
+				$rule['split'] = '|';
+			
+			if (!isset($rule['transform']))
+				$rule['transform'] = function($choices) {
+					return $choices[rand(0, count($choices) - 1)];
+				};
+		}
 	}
 }
