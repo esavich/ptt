@@ -22,16 +22,42 @@ class Ptt {
 	/**
 	 * Compile templates
 	 */
-	public function compile($tpl) {
+	public function compile($tpl, $replace = []) {
 		$this->fulfillRules();
 		$this->sortRules();
 		$this->prepareTags();
 
 		$tree = null;
 
+		if (count($replace) > 0) {
+			$tpl = $this->doReplace($tpl, $replace);
+		}
+
 		$this->buildTree($tpl, $tree);
 
 		return $this->assembleText($tree);
+	}
+
+	/**
+	 * Replace static text
+	 */
+	protected function doReplace($tpl, $rules) {
+		if (count($rules) < 3) {
+			$srs = '<';
+			$ers = '>';
+			$patts = $rules[0];
+		}
+		else {
+			$srs = $rules[0];
+			$ers = $rules[1];
+			$patts = $rules[2];
+		}
+
+			$tpl = str_ireplace(array_map(function($x) use($srs, $ers) {
+				return $srs . $x . $ers;
+			} , array_keys($patts)), array_values($patts), $tpl);
+
+		return $tpl;
 	}
 
 	/**
@@ -87,7 +113,7 @@ class Ptt {
 				$tree[$cc++] = substr($tpl, 0, $pos);
 				$olen = strlen($opening[$index]);
 				$tpl = substr($tpl, $pos + $olen);
-				
+
 				$tree[$cc] = null;
 
 				$tpl = $this->buildTree($tpl, $tree[$cc++]);
@@ -143,7 +169,7 @@ class Ptt {
 		usort($this->rules, function($a, $b) {
 			return max(array_map(function($x) {
 				return strlen($x);
-			}, $a['take'])) > 
+			}, $a['take'])) >
 				   max(array_map(function($x) {
 				return strlen($x);
 			}, $b['take'])) ? -1 : 1;
@@ -157,10 +183,10 @@ class Ptt {
 		foreach ($this->rules as &$rule) {
 			if (!isset($rule['take']))
 				$rule['take'] = ['[', ']'];
-			
+
 			if (!isset($rule['split']))
 				$rule['split'] = '|';
-			
+
 			if (!isset($rule['transform']))
 				$rule['transform'] = function($choices) {
 					return $choices[rand(0, count($choices) - 1)];
