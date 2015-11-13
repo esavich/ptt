@@ -4,11 +4,11 @@
  * PHP Text templater
  */
 class Ptt {
-	protected $rules = [];
+	protected $rules = array();
 
-	protected $tags = [];
+	protected $tags = array();
 
-	public function __construct($rules = []) {
+	public function __construct($rules = array()) {
 		$this->rules = $rules;
 	}
 
@@ -22,20 +22,22 @@ class Ptt {
 	/**
 	 * Compile templates
 	 */
-	public function compile($tpl, $replace = []) {
+	public function compile($tpl, $replace = array()) {
 		$this->fulfillRules();
 		$this->sortRules();
 		$this->prepareTags();
 
 		$tree = null;
 
-		if (count($replace) > 0) {
-			$tpl = $this->doReplace($tpl, $replace);
-		}
-
 		$this->buildTree($tpl, $tree);
 
-		return $this->assembleText($tree);
+		$text = $this->assembleText($tree);
+
+		if (count($replace) > 0) {
+			$text = $this->doReplace($text, $replace);
+		}
+
+		return $text;
 	}
 
 	/**
@@ -53,9 +55,9 @@ class Ptt {
 			$patts = $rules[2];
 		}
 
-			$tpl = str_ireplace(array_map(function($x) use($srs, $ers) {
-				return $srs . $x . $ers;
-			} , array_keys($patts)), array_values($patts), $tpl);
+		foreach ($patts as $key => $value) {
+			$tpl = $this->mb_stri_replace($srs . $key . $ers, $value, $tpl);
+		}
 
 		return $tpl;
 	}
@@ -99,7 +101,7 @@ class Ptt {
 		}, $this->tags);
 
 		if ($tree == null) {
-			$tree = [];
+			$tree = array();
 		}
 
 		$cc = 0;
@@ -119,7 +121,7 @@ class Ptt {
 				$tpl = $this->buildTree($tpl, $tree[$cc++]);
 			}
 			elseif ($eindex != -1) {
-				$tree[$cc++] = ['ind' => $eindex, 'patt' => substr($tpl, 0, $epos)];
+				$tree[$cc++] = array('ind' => $eindex, 'patt' => substr($tpl, 0, $epos));
 				$olen = strlen($closing[$eindex]);
 				$tpl = substr($tpl, $epos + $olen);
 
@@ -147,7 +149,7 @@ class Ptt {
 			}
 		}
 
-		return [$min, $min_ind];
+		return array($min, $min_ind);
 	}
 
 	/**
@@ -182,7 +184,7 @@ class Ptt {
 	protected function fulfillRules() {
 		foreach ($this->rules as &$rule) {
 			if (!isset($rule['take']))
-				$rule['take'] = ['[', ']'];
+				$rule['take'] = array('[', ']');
 
 			if (!isset($rule['split']))
 				$rule['split'] = '|';
@@ -192,5 +194,23 @@ class Ptt {
 					return $choices[rand(0, count($choices) - 1)];
 				};
 		}
+	}
+
+	/**
+	 * Replace all matches of $pattern to $replacement. Works with multibyte and case-insensetive
+	 */
+	protected function mb_stri_replace($pattern, $replacement, $string) {
+		mb_internal_encoding('UTF-8');
+
+		$pos = mb_stripos($string, $pattern, 0);
+		$len = mb_strlen($pattern);
+
+		while ($pos !== false) {
+		  $string = mb_substr($string, 0, $pos) . $replacement . mb_substr($string, $pos + $len);
+
+			$pos = mb_stripos($string, $pattern, $pos);
+		}
+
+		return $string;
 	}
 }
