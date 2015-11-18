@@ -13,17 +13,33 @@ $ptt = new Ptt([
 		'transform' => function($choices) {
 			return $choices[rand(0, count($choices) - 1)];
 		}
-	],
-	[                                           // Take everything inside [% %], split by | and shuffle choices
-		'take' => ['[%', '%]'],
-		'split' => '|',
-		'transform' => function($choices) {
-			shuffle($choices);
-			return join('', $choices);
-		}
 	]
 ]);
 
-$text = $ptt->compile($template);               // Compile template using this rules 
-```
+// Separate rules may be added like this
+$ptt->addRule([
+	'take' => ['[%', '%]'],
+	'split' => '|',
+	'transform' => function($choices) {
+		shuffle($choices);
+		return join('', $choices);
+	}
+]);
 
+// All rules by default has '[',']' as enclosing symbols and '|' set to splitting.
+
+$text = $ptt->compile($template, [$replace]);               // Compile template using this rules
+
+// Optional parameter $replace used for replacing placeholders in template after compiling it.
+// By default placeholders enclosed in '<' and '>'. This could be changed with two first params in $replace.
+
+// Full $replace example:
+$replace = [
+	'<', '>', [
+		'placeholder1' => 'replacement1',
+		'placeholder2' => 'replacement2'
+	]
+];
+
+// As mentioned above all replacements happens after template compiling, so enclosing symbols should differ from that used in compile rules.
+```

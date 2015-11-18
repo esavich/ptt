@@ -14,6 +14,7 @@ class Ptt {
 
 	/**
 	 * Add new rule to collection
+	 * @param array $rule Rule description
 	 */
 	public function addRule($rule) {
 		$this->rules[] = $rule;
@@ -21,6 +22,9 @@ class Ptt {
 
 	/**
 	 * Compile templates
+	 * @param string $tpl Source template
+	 * @param array $replace List of parameters that should be replaced
+	 * @return string Compiled text
 	 */
 	public function compile($tpl, $replace = array()) {
 		$this->fulfillRules();
@@ -42,6 +46,9 @@ class Ptt {
 
 	/**
 	 * Replace static text
+	 * @param string $tpl Source template
+	 * @param array $rules List of replace rules
+	 * @return string Template with replaced placeholders.
 	 */
 	protected function doReplace($tpl, $rules) {
 		if (count($rules) < 3) {
@@ -49,10 +56,13 @@ class Ptt {
 			$ers = '>';
 			$patts = $rules[0];
 		}
-		else {
+		elseif (is_array($rules[2])) {
 			$srs = $rules[0];
 			$ers = $rules[1];
 			$patts = $rules[2];
+		}
+		else {
+			return $tpl;
 		}
 
 		foreach ($patts as $key => $value) {
@@ -64,6 +74,8 @@ class Ptt {
 
 	/**
 	 * Assemble text from tree, transforming patterns according to rules
+	 * @param array $root Tag tree root
+	 * @return string Assembled part of text
 	 */
 	protected function assembleText($root) {
 		$accum = '';
@@ -90,6 +102,9 @@ class Ptt {
 
 	/**
 	 * Create pattern tree from template
+	 * @param string $tpl Current processing template
+	 * @param array $tree Tree level
+	 * @return string unparsed part of template
 	 */
 	protected function buildTree($tpl, &$tree) {
 		$opening = array_map(function($x) {
@@ -106,7 +121,6 @@ class Ptt {
 
 		$cc = 0;
 
-		// @todo: make shure that this loop will stop in any cases
 		while (true) {
 			list($pos, $index) = $this->matchFirstAny($opening, $tpl);
 			list($epos, $eindex) = $this->matchFirstAny($closing, $tpl);
@@ -136,6 +150,9 @@ class Ptt {
 
 	/**
 	 * Search for first occurance of any variant
+	 * @param array $vars List of variables to match
+	 * @param string $tpl Template to search in
+	 * @return array [minimum value, $vars index of mathed value]
 	 */
 	protected function matchFirstAny($vars, $tpl) {
 		$min = mb_strlen($tpl);
@@ -197,7 +214,9 @@ class Ptt {
 	}
 
 	/**
-	 * Replace all matches of $pattern to $replacement. Works with multibyte and case-insensetive
+	 * Replace all matches of $pattern to $replacement.
+	 * Case-insensetive variant.
+	 * Works like php str_replace but with support for multibyte
 	 */
 	protected function mb_stri_replace($pattern, $replacement, $string) {
 		mb_internal_encoding('UTF-8');
