@@ -3,12 +3,13 @@
 Used for generating dynamic text from templates. Commonly used for seo text generation.
 
 #### Basic usage:
+
 ```php
 $template = 'Lorem ipsum [dolor sit|amet], consectetur adipisicing elit. Aliquid [aut et|expedita|fuga [fugiat|ipsum molestias] neque nesciunt] placeat quasi, quisquam repellat tempora totam. Amet blanditiis [corporis|esse|odio] soluta.';
 
 $ptt = new Ptt([
-	[                                           // This rule will take everything inside [], split it by | and
-		'take' => ['[', ']'],                   //choose random variant
+	[                                           // this rule will take everything inside [], split it by | and
+		'take' => ['[', ']'],                   // choose random variant
 		'split' => '|',
 		'transform' => function($choices) {
 			return $choices[rand(0, count($choices) - 1)];
@@ -16,7 +17,9 @@ $ptt = new Ptt([
 	]
 ]);
 
-// Separate rules may be added like this
+// Transform function is a callback that takes list of from template and returns selected choice (string).
+
+// Other rules may also be applied to single template
 $ptt->addRule([
 	'take' => ['[%', '%]'],
 	'split' => '|',
@@ -27,6 +30,7 @@ $ptt->addRule([
 ]);
 
 // All rules by default has '[',']' as enclosing symbols and '|' set to splitting.
+// Also should be noted that before processing all rules sorted by token length so if you have same symbols in your tokens they working correctly. 
 
 $text = $ptt->compile($template, [$replace]);               // Compile template using this rules
 
@@ -43,3 +47,7 @@ $replace = [
 
 // As mentioned above all replacements happens after template compiling, so enclosing symbols should differ from that used in compile rules.
 ```
+
+#### License
+
+Ptt is licensed under the MIT license. Refer to /LICENSE for more information.
