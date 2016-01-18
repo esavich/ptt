@@ -51,3 +51,7 @@ $replace = [
 #### License
 
 Ptt is licensed under the MIT license. Refer to /LICENSE for more information.
+
+#### Contribution
+
+Any ideas or improvements will be welcome.
